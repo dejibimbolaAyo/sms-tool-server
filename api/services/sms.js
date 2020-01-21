@@ -1,7 +1,8 @@
 const _ = require("underscore");
-const axios = require('axios');
-const Sms = require("../models/sms");
+const SmsModel = require("../models/sms");
+const SmsTemplateService = require("../services/smstemplate")
 const GoogleSheet = require("../services/googlesheets");
+const SmsQueue = require("../jobs/sms");
 
 exports.send = async (contactListFile, query, message, personalized = false) => {
 	let deliveryCount = 0;
@@ -13,18 +14,22 @@ exports.send = async (contactListFile, query, message, personalized = false) => 
 	if (contacts && contacts.length > 0) {
 		contacts = findUniqueContacts(contacts);
 		if (personalized) {
+			const templateId = message
 			// Send personalized messages
 			contacts.forEach(async contact => {
-				message = prepareMessage(contact.phoneNumber, message)
-				response = await sendMessage(contact.phoneNumber, message)
-				response = response.data
+				message = await prepareMessage(templateId, contact)
+				SmsQueue.queueSms({
+					contact: contact.phoneNumber,
+					message
+				});
 			});
 		} else {
 			// Send bulk messages
 			contacts = prepareRecepients(contacts);
-			response = await sendMessage(contacts, message)
-			response = response.data
-
+			SmsQueue.queueSms({
+				contact: contact.phoneNumber,
+				message
+			});
 		}
 	}
 	response ? deliveryCount = response.split(" ")[1] : deliveryCount = 0;
@@ -49,21 +54,29 @@ const findUniqueContacts = (contacts = []) => {
 	})
 	return uniqueContacts;
 }
+
 /**
  * Read contact details from an Excell sheet containing contacts
  * @param {*} query 
  */
 const readContactFromExcelSheet = (file = process.env.DEFAULT_CONTACT_LIST, query = {}) => {
 	// Validate file
-	return GoogleSheet.getSheetContent(file);
+	try {
+		return GoogleSheet.getSheetContent(file);
+	} catch (error) {
+		console.log("Error fetching Google contacts", error.message);
+	}
 }
+
 /**
  * Add receiver details (name and other identities) to message
  * @param {*} receiver 
  * @param {*} message 
  */
-const prepareMessage = (receiver = [], message = "") => {
-	return message
+const prepareMessage = async (templateId, receiver) => {
+	// TODO: strip off the tags in this as pug returns an HTML element
+	const message = await SmsTemplateService.render(templateId, receiver);
+	return message;
 }
 
 const prepareRecepients = (contacts) => {
@@ -90,26 +103,6 @@ const sanitizePhoneNumber = (number) => {
 	return number
 }
 
-const sendMessage = async (receivers, message = "") => {
-	receivers
-	if (receivers.length === 0) return;
-	if (message === "") return;
-
-	const smsUsername = process.env.SMARTSMS_USERNAME;
-	const smsPassword = process.env.SMARTSMS_PASSWORD;
-	const sender = process.env.SENDER;
-	return true
-	// const smsRequestString = `http://api.smartsmssolutions.com/smsapi.php?username=${smsUsername}&password=${smsPassword}&sender=${sender}&recipient=${receivers}&message=${message}`
-	// return axios.get(smsRequestString)
-	// 	.then(function (response) {
-	// 		// handle success
-	// 		return response
-	// 	})
-	// 	.catch(function (error) {
-	// 		// handle error
-	// 		return error;
-	// 	})
-}
 /**
  * Save message details
  * @param {*} recepientCount 
@@ -118,7 +111,7 @@ const sendMessage = async (receivers, message = "") => {
  * @param {*} cost 
  */
 const persistMessageRecords = async (recepientCount = 0, message = "", deliveryCount = 0, cost = "0.0", log = "") => {
-	const messageRecord = await Sms.create({
+	const messageRecord = await SmsModel.create({
 		recepients: recepientCount,
 		deliveryReport: deliveryCount,
 		content: message,
