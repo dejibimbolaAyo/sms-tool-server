@@ -8,7 +8,6 @@ let smsQueue = new Queue('smsQueue');
 let dailyRunnerQueue = new Queue('dailyRunnerQueue');
 
 exports.queueSms = async (job) => {
-    // this will do the heavy lifting for sending out sms
 	smsQueue.add(job);
 }
 
@@ -44,19 +43,6 @@ smsQueue.process(function(job, done) {
 })
 
 dailyRunnerQueue.process(async (job, done) => {
-	// Todo: determine what number to send a message to by 3:15AM
 	let contacts = await GoogleSheet.getBirthdayCelebrants();
-
 	Sms.send(contacts, undefined, undefined, "birthday_message")
-	// console.log(contacts);
-	// if (contacts && contacts.length > 0) {
-	// 	contacts = Sms.findUniqueContacts(contacts);
-	// 	// Randomize birthday message
-	// 	const templateType = 'birthday_message';
-	// 	// Send personalized messages
-	// 	contacts.forEach(async contact => {
-	// 		message = await Sms.prepareMessage(templateType, contact);
-	// 		smsQueue.add({contact, message});
-	// 	});
-	// }
 })

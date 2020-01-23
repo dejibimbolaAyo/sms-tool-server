@@ -6,7 +6,7 @@ let {error, success} = require("../constants/response");
 let response = require("../common/responseWriter");
 
 /**
- * Create user
+ * Send SMS
  */
 exports.sendSms = async function (req, res) {
     const {contactFile, query, messageType, personalized} = req.body
