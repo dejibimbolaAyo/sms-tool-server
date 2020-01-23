@@ -6,17 +6,19 @@ const pug = require("pug");
  * @param {*} template 
  * @param {*} data 
  */
-exports.render = async (templateId, data) => {
-    const template = await getTemplate(templateId);
-    const compiledFunction = pug.compile(template.content);
-    const message = compiledFunction(data);
-	// Strip out tags
-	return stripHtml(message)
+exports.render = async (data,templateType) => {
+    const template = await getTemplate(templateType);
+    if(template) {
+        const compiledFunction = pug.compile(template.content);
+        const message = compiledFunction(data);
+        // Strip out tags
+        return stripHtml(message)
+    } return false;
 }
 
 // Fet the template to use with SMS
-async function getTemplate(templateId) {
-    const template = await SmsTemplate.findById(templateId);
+async function getTemplate(templateType) {
+    const template = await SmsTemplate.findOne({messageType: templateType});
     return template;
 }
 

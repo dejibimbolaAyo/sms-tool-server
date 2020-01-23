@@ -6,19 +6,19 @@ let {error, success} = require("../constants/response");
 let response = require("../common/responseWriter");
 
 /**
- * Create user
+ * Send SMS
  */
 exports.sendSms = async function (req, res) {
-    const {contactFile, query, message, personalized} = req.body
+    const {contactFile, query, messageType, personalized} = req.body
   
-    if (!message) {
+    if (!messageType) {
       error.message = `Please you cannot send an empty message`;
       logger.log("info", error.message);
       return response.writeJson(res, error, HTTP_STATUS.BAD_REQUEST.CODE)
     }
   
     try {
-        const result = await Sms.send(contactFile, query, message, personalized);
+        const result = await Sms.send(contactFile, query, messageType, personalized);
   
         success.data = result;
         return response.writeJson(res, success, HTTP_STATUS.OK.CODE)
