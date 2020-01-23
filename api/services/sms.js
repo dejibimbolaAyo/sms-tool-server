@@ -4,37 +4,33 @@ const SmsTemplateService = require("../services/smstemplate")
 const GoogleSheet = require("../services/googlesheets");
 const SmsQueue = require("../jobs/sms");
 
-exports.send = async (contactListFile, query, message, personalized = false) => {
+exports.send = async (contacts, contactListFile, query, messageType, personalized = false) => {
 	let deliveryCount = 0;
 	let cost = "";
-	let contacts = await readContactFromExcelSheet(contactListFile, query);
+	if (contacts === undefined) {
+		contacts = await GoogleSheet.getAllContacts(contactListFile, query);
+	}
 	let recepientCount = contacts.length
 	let response = "";
 
 	if (contacts && contacts.length > 0) {
 		contacts = findUniqueContacts(contacts);
-		if (personalized) {
-			const templateId = message
-			// Send personalized messages
-			contacts.forEach(async contact => {
-				message = await prepareMessage(templateId, contact)
+		const templateType = messageType;
+		// Send personalized messages
+		contacts.forEach(async contact => {
+			const message = await prepareMessage(contact, templateType);
+			console.log("message", message)
+			if(message) {
 				SmsQueue.queueSms({
 					contact: contact.phoneNumber,
 					message
 				});
-			});
-		} else {
-			// Send bulk messages
-			contacts = prepareRecepients(contacts);
-			SmsQueue.queueSms({
-				contact: contact.phoneNumber,
-				message
-			});
-		}
+			}
+		});
 	}
 	response ? deliveryCount = response.split(" ")[1] : deliveryCount = 0;
 	// Get deliveryCount from response on send message, same as cost if available
-	return persistMessageRecords(recepientCount, message, deliveryCount, cost)
+	return persistMessageRecords(recepientCount, messageType, deliveryCount, cost)
 }
 
 /**
@@ -56,26 +52,13 @@ const findUniqueContacts = (contacts = []) => {
 }
 
 /**
- * Read contact details from an Excell sheet containing contacts
- * @param {*} query 
- */
-const readContactFromExcelSheet = (file = process.env.DEFAULT_CONTACT_LIST, query = {}) => {
-	// Validate file
-	try {
-		return GoogleSheet.getSheetContent(file);
-	} catch (error) {
-		console.log("Error fetching Google contacts", error.message);
-	}
-}
-
-/**
  * Add receiver details (name and other identities) to message
  * @param {*} receiver 
  * @param {*} message 
  */
-const prepareMessage = async (templateId, receiver) => {
+const prepareMessage = async (receiver, templateType) => {
 	// TODO: strip off the tags in this as pug returns an HTML element
-	const message = await SmsTemplateService.render(templateId, receiver);
+	const message = await SmsTemplateService.render(receiver, templateType);
 	return message;
 }
 
@@ -95,7 +78,6 @@ const sanitizePhoneNumber = (number) => {
 	}
 	if (number.length == 13) {
 		return number
-		console.log("13", number)
 	}
 	if (number.length == 14) {
 		return number.substring(1)
