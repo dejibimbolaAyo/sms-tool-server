@@ -22,7 +22,7 @@
 	"dependencies": {
 		"app-root-path": "^2.2.1",
 		"async": "^3.1.0",
-		"axios": "^0.19.0",
+		"axios": "^0.21.1",
 		"bcrypt": "^3.0.6",
 		"bluebird": "^3.5.1",
 		"body-parser": "^1.19.0",
